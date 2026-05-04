@@ -2,7 +2,9 @@ package com.example.hisync.controller;
 
 import com.example.hisync.dto.SessionRequest;
 import com.example.hisync.dto.SessionResponse;
+import com.example.hisync.dto.TaskResponse;
 import com.example.hisync.model.Session;
+import com.example.hisync.repository.TaskRepository;
 import com.example.hisync.service.SessionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -19,6 +21,7 @@ import java.util.stream.Collectors;
 public class SessionController {
 
     private final SessionService sessionService;
+    private final TaskRepository taskRepo; // thêm dòng này
 
     @GetMapping
     public ResponseEntity<List<SessionResponse>> getSessions(
@@ -47,13 +50,34 @@ public class SessionController {
 
     // Convert Session entity → SessionResponse DTO
     private SessionResponse toResponse(Session session) {
+    // Map members
+        List<SessionResponse.MemberDto> members = session.getMembers().stream()
+            .map(m -> new SessionResponse.MemberDto(
+                m.getUser().getId(),
+                m.getUser().getDisplayName(),
+                m.getInstrument()
+            ))
+            .collect(Collectors.toList());
+
+        // Map tasks
+        List<TaskResponse> tasks = session.getMembers().isEmpty() ? List.of() :
+            taskRepo.findBySessionId(session.getId()).stream()
+                .map(t -> new TaskResponse(
+                    t.getId(),
+                    session.getId(),
+                    t.getTitle(),
+                    t.getStatus().name(),
+                    t.getAssignedTo() != null ? t.getAssignedTo().getDisplayName() : "Unknown"
+                ))
+                .collect(Collectors.toList());
+
         return new SessionResponse(
             session.getId(),
             session.getSongTitle(),
             session.getDate(),
-            session.getCreatedBy() != null
-                ? session.getCreatedBy().getDisplayName()
-                : "Unknown"
+            session.getCreatedBy() != null ? session.getCreatedBy().getDisplayName() : "Unknown",
+            members,
+            tasks
         );
     }
 }

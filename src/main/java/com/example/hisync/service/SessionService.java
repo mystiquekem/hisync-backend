@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 import java.time.LocalDateTime;
 import java.util.List;
+import jakarta.transaction.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -24,10 +25,13 @@ public class SessionService {
         return sessionRepo.findByMemberUserIdAndDateBetween(userId, from, to);
     }
 
+    @Transactional
     public Session getById(Long id) {
-        return sessionRepo.findById(id)
+        Session session = sessionRepo.findById(id)
             .orElseThrow(() ->
                 new ResponseStatusException(HttpStatus.NOT_FOUND, "Session not found"));
+        session.getMembers().size(); // force load
+        return session;
     }
 
     public Session create(SessionRequest req) {
