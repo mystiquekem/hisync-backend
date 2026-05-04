@@ -48,11 +48,10 @@ public class TaskController {
     private TaskResponse toResponse(Task task) {
         return new TaskResponse(
             task.getId(),
+            task.getSession() != null ? task.getSession().getId() : null, // thêm
             task.getTitle(),
             task.getStatus().name(),
-            task.getAssignedTo() != null
-                ? task.getAssignedTo().getDisplayName()
-                : "Unknown"
+            task.getAssignedTo() != null ? task.getAssignedTo().getDisplayName() : "Unknown"
         );
     }
 }

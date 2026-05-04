@@ -24,7 +24,11 @@ public class AuthService {
         User user = new User();
         user.setEmail(req.getEmail());
         user.setPassword(passwordEncoder.encode(req.getPassword()));
-        user.setDisplayName(req.getEmail().split("@")[0]);
+        user.setDisplayName(
+            req.getDisplayName() != null && !req.getDisplayName().isBlank()
+                ? req.getDisplayName()
+                : req.getEmail().split("@")[0]
+        );
         return userRepo.save(user);
     }
 
