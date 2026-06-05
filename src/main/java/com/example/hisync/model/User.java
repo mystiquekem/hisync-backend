@@ -1,8 +1,6 @@
-// model/User.java
 package com.example.hisync.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -30,5 +28,5 @@ public class User {
     @Column(columnDefinition = "user_role")
     private Role role = Role.member;
 
-    public enum Role { member, admin }
+    public enum Role { member, leader, admin }
 }

@@ -7,11 +7,10 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class TaskResponse {
+public class SongResponse {
     private Long id;
-    private Long sessionId;
+    private String youtubeId;
     private String title;
-    private String status;
-    private String assignedToName;
-    private String recordingUrl;
+    private String thumbnailUrl;
+    private String addedByName;
 }

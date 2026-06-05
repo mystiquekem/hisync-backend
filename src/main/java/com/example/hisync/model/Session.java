@@ -1,4 +1,3 @@
-// model/Session.java
 package com.example.hisync.model;
 
 import jakarta.persistence.*;
@@ -19,6 +18,10 @@ public class Session {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "band_id")
+    private Band band;
 
     private String songTitle;
     private LocalDateTime date;
