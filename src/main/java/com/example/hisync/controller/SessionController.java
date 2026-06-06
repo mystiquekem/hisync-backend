@@ -65,9 +65,10 @@ public class SessionController {
                 .map(t -> new TaskResponse(
                     t.getId(),
                     session.getId(),
-                    t.getTitle(),
+                    t.getTitle(), 
                     t.getStatus().name(),
-                    t.getAssignedTo() != null ? t.getAssignedTo().getDisplayName() : "Unknown"
+                    t.getAssignedTo() != null ? t.getAssignedTo().getDisplayName() : "Unknown",
+                    t.getRecordingUrl()
                 ))
                 .collect(Collectors.toList());
 

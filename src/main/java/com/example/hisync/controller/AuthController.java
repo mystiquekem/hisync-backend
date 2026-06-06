@@ -1,7 +1,9 @@
 package com.example.hisync.controller;
 
+import com.example.hisync.dto.ForgotPasswordRequest;
 import com.example.hisync.dto.LoginRequest;
 import com.example.hisync.dto.RegisterRequest;
+import com.example.hisync.dto.ResetPasswordRequest;
 import com.example.hisync.dto.UserResponse;
 import com.example.hisync.model.User;
 import com.example.hisync.service.AuthService;
@@ -20,12 +22,8 @@ public class AuthController {
     public ResponseEntity<UserResponse> register(@RequestBody RegisterRequest req) {
         User user = authService.register(req);
         return ResponseEntity.status(201).body(
-            new UserResponse(
-                user.getId(),
-                user.getEmail(),
-                user.getDisplayName(),
-                user.getRole().name()
-            )
+            new UserResponse(user.getId(), user.getEmail(),
+                user.getDisplayName(), user.getRole().name())
         );
     }
 
@@ -33,12 +31,20 @@ public class AuthController {
     public ResponseEntity<UserResponse> login(@RequestBody LoginRequest req) {
         User user = authService.login(req);
         return ResponseEntity.ok(
-            new UserResponse(
-                user.getId(),
-                user.getEmail(),
-                user.getDisplayName(),
-                user.getRole().name()
-            )
+            new UserResponse(user.getId(), user.getEmail(),
+                user.getDisplayName(), user.getRole().name())
         );
+    }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<Void> forgotPassword(@RequestBody ForgotPasswordRequest req) {
+        authService.sendOtp(req.getEmail());
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<Void> resetPassword(@RequestBody ResetPasswordRequest req) {
+        authService.resetPassword(req.getEmail(), req.getOtp(), req.getNewPassword());
+        return ResponseEntity.ok().build();
     }
 }
