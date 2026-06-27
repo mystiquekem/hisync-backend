@@ -73,4 +73,4 @@ TODO — thêm license phù hợp (MIT/Apache-2.0/...) trước khi public chín
 
 ## 🙋 Liên hệ
 
-Tác giả: [tên bạn] — đồ án tốt nghiệp, [tên trường], 2026.
+Tác giả: Nguyễn Thái An — đồ án tốt nghiệp, USTH, 2026.
