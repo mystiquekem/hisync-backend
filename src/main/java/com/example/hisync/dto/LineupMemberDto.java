@@ -3,15 +3,12 @@ package com.example.hisync.dto;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import java.util.List;
 
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class UserResponse {
+public class LineupMemberDto {
     private Long userId;
-    private String email;
     private String displayName;
-    private String role;
-    private List<String> instruments;
+    private String instrument;
 }

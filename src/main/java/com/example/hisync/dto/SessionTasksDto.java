@@ -9,14 +9,9 @@ import java.util.List;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class SessionResponse {
-    private Long id;
-    private Long lineupId;
+public class SessionTasksDto {
+    private Long sessionId;
     private String songTitle;
-    private String thumbnailUrl;
-    private LocalDateTime date;
-    private Integer durationMinutes;
-    private String createdByName;
-    private List<LineupMemberDto> members;
+    private LocalDateTime sessionDate;
     private List<TaskResponse> tasks;
 }
