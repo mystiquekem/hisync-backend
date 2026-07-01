@@ -2,6 +2,7 @@ package com.example.hisync.controller;
 
 import com.example.hisync.dto.UserResponse;
 import com.example.hisync.model.User;
+import com.example.hisync.repository.UserInstrumentRepository;
 import com.example.hisync.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -19,49 +20,49 @@ import java.util.stream.Collectors;
 public class AdminController {
 
     private final UserRepository userRepo;
+    private final UserInstrumentRepository instrumentRepo;
 
-    // Lấy danh sách tất cả users
     @GetMapping("/users")
     public ResponseEntity<List<UserResponse>> getAllUsers() {
         List<UserResponse> users = userRepo.findAll().stream()
-            .map(u -> new UserResponse(
-                u.getId(),
-                u.getEmail(),
-                u.getDisplayName(),
-                u.getRole().name()
-            ))
-            .collect(Collectors.toList());
+                .map(u -> new UserResponse(
+                        u.getId(),
+                        u.getEmail(),
+                        u.getDisplayName(),
+                        u.getRole().name(),
+                        instrumentRepo.findInstrumentsByUserId(u.getId())
+                ))
+                .collect(Collectors.toList());
         return ResponseEntity.ok(users);
     }
 
-    // Đổi role của user
     @PatchMapping("/users/{id}/role")
     public ResponseEntity<UserResponse> updateRole(
             @PathVariable Long id,
             @RequestBody Map<String, String> body) {
 
         User user = userRepo.findById(id)
-            .orElseThrow(() ->
-                new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+                .orElseThrow(() ->
+                        new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
 
         String newRole = body.get("role");
         try {
             user.setRole(User.Role.valueOf(newRole));
         } catch (IllegalArgumentException e) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                "Invalid role: " + newRole + ". Must be member, leader, or admin");
+                    "Invalid role: " + newRole + ". Must be member, leader, or admin");
         }
 
         userRepo.save(user);
         return ResponseEntity.ok(new UserResponse(
-            user.getId(),
-            user.getEmail(),
-            user.getDisplayName(),
-            user.getRole().name()
+                user.getId(),
+                user.getEmail(),
+                user.getDisplayName(),
+                user.getRole().name(),
+                instrumentRepo.findInstrumentsByUserId(id)
         ));
     }
 
-    // Xóa user
     @DeleteMapping("/users/{id}")
     public ResponseEntity<Void> deleteUser(@PathVariable Long id) {
         if (!userRepo.existsById(id))

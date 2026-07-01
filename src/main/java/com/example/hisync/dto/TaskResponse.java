@@ -14,4 +14,6 @@ public class TaskResponse {
     private String status;
     private String assignedToName;
     private String recordingUrl;
+    private String sessionSong;   // new
+    private String sessionDate;   // new
 }

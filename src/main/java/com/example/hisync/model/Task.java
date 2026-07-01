@@ -27,11 +27,12 @@ public class Task {
     private String title;
 
     @Enumerated(EnumType.STRING)
-    @Column(columnDefinition = "task_status")
+    @Column(name = "status", columnDefinition = "task_status")
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.NAMED_ENUM)
     private Status status = Status.pending;
 
     @Column(name = "recording_url")
     private String recordingUrl;
 
-    public enum Status { pending, done, rerecord }
+    public enum Status { pending, submitted, approved, rerecord }
 }

@@ -1,42 +1,39 @@
-// model/SessionMember.java
 package com.example.hisync.model;
 
 import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import lombok.AllArgsConstructor;
 import java.io.Serializable;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-
 @Entity
-@Table(name = "session_members")
+@Table(name = "lineup_members")
 @Data
 @NoArgsConstructor
-public class SessionMember {
+public class LineupMember {
 
     @EmbeddedId
-    private SessionMemberId id = new SessionMemberId();
+    private LineupMemberId id = new LineupMemberId();
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @MapsId("sessionId")
-    @JoinColumn(name = "session_id")
-    private Session session;
+    @MapsId("lineupId")
+    @JoinColumn(name = "lineup_id")
+    private Lineup lineup;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @MapsId("userId")
     @JoinColumn(name = "user_id")
     private User user;
 
+    @Column(name = "instrument", nullable = false)
     private String instrument;
 
     @Embeddable
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
-    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
-    public static class SessionMemberId implements Serializable {
-        private Long sessionId;
+    public static class LineupMemberId implements Serializable {
+        private Long lineupId;
         private Long userId;
     }
 }

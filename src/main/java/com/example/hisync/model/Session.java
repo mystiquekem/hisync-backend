@@ -4,8 +4,6 @@ import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 @Entity
@@ -23,13 +21,16 @@ public class Session {
     @JoinColumn(name = "band_id")
     private Band band;
 
-    private String songTitle;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "lineup_id")
+    private Lineup lineup;
+
+    @Column(name = "duration_minutes")
+    private Integer durationMinutes = 60;
+
     private LocalDateTime date;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by")
     private User createdBy;
-
-    @OneToMany(mappedBy = "session", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    private List<SessionMember> members = new ArrayList<>();
 }

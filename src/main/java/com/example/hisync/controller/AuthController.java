@@ -21,19 +21,13 @@ public class AuthController {
     @PostMapping("/register")
     public ResponseEntity<UserResponse> register(@RequestBody RegisterRequest req) {
         User user = authService.register(req);
-        return ResponseEntity.status(201).body(
-            new UserResponse(user.getId(), user.getEmail(),
-                user.getDisplayName(), user.getRole().name())
-        );
+        return ResponseEntity.status(201).body(authService.toResponse(user));
     }
 
     @PostMapping("/login")
     public ResponseEntity<UserResponse> login(@RequestBody LoginRequest req) {
         User user = authService.login(req);
-        return ResponseEntity.ok(
-            new UserResponse(user.getId(), user.getEmail(),
-                user.getDisplayName(), user.getRole().name())
-        );
+        return ResponseEntity.ok(authService.toResponse(user));
     }
 
     @PostMapping("/forgot-password")
