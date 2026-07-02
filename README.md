@@ -1,106 +1,294 @@
-# HiSync Backend 🎛️
+# hisync — Spring Boot Backend
 
-Backend REST API cho **HiSync** — app quản lý lịch tập, repertoire bài hát và task luyện tập cho band nhạc / club âm nhạc.
-
-> Đây là repo **backend (Spring Boot + PostgreSQL)**. Android client nằm ở repo riêng: [`hisync`](https://github.com/mystiquekem/hisync).
+## Overview
+hisync backend is a RESTful API server for the hisync band practice management app. It handles authentication, band management, lineups, sessions, tasks, and user profiles.
 
 ---
 
-## 🛠️ Tech stack
+## Tech Stack
+- **Language:** Java 21
+- **Framework:** Spring Boot 3.x
+- **Build tool:** Gradle
+- **Database:** PostgreSQL
+- **ORM:** Spring Data JPA + Hibernate
+- **Security:** Spring Security (BCrypt password hashing, all routes permitted for now)
+- **Email:** Spring Mail (Gmail SMTP) for OTP delivery
+- **Schema management:** `ddl-auto=validate` — schema managed manually in pgAdmin
 
-| Layer | Công nghệ |
-|---|---|
-| Framework | Spring Boot |
-| ORM | Spring Data JPA + Hibernate |
-| Database | PostgreSQL (native `ENUM` cho role/status) |
-| Auth | BCrypt password hashing, OTP qua email cho reset password |
-| Mail | JavaMailSender (Gmail SMTP) |
-| Media bài tập | Cloudinary (upload recording) |
-| Repertoire | YouTube Data API v3 |
-| Codegen | Lombok |
+---
 
-## 📂 Cấu trúc project
+## Prerequisites
+Before running the backend, make sure you have the following installed:
 
-```
-src/main/java/com/example/hisync/
-├── config/      # SecurityConfig, CORS,...
-├── controller/  # REST endpoints (Auth, Band, Session, Song, Task, User, Admin)
-├── dto/         # Request/response payload
-├── model/       # JPA Entity: User, Band, BandMember, Session, SessionMember, Song, Task
-├── repository/  # Spring Data JPA repository interfaces
-└── service/     # Business logic: AuthService, BandService, SessionService, SongService, OtpStore
-```
+| Tool | Version | Download |
+|------|---------|----------|
+| Java JDK | 21 | https://aws.amazon.com/corretto/ |
+| PostgreSQL | 15+ | https://www.postgresql.org/download/ |
+| pgAdmin | 4 | https://www.pgadmin.org/download/ |
+| Gradle | bundled via `gradlew` | — |
 
-## 🧩 Schema tổng quan
+---
 
-7 bảng chính: `users`, `bands`, `band_members` (composite PK), `sessions`, `session_members` (composite PK), `songs`, `tasks`.
+## Installation & Setup
 
-- `users.email` và `bands.invite_code` là `UNIQUE`.
-- `band_members` / `session_members` dùng composite primary key (`band_id + user_id`, `session_id + user_id`) để DB tự chặn join trùng.
-- `role` (`member`/`leader`/`admin`) và `task.status` (`pending`/`done`/`rerecord`) là PostgreSQL native `ENUM`.
+### Step 1 — Clone or open the project
+Open the backend project folder in IntelliJ IDEA or VS Code.
 
-## 🚀 Setup & chạy thử
+### Step 2 — Create the PostgreSQL database
+1. Open pgAdmin and connect to your local PostgreSQL server
+2. Right-click **Databases** → **Create** → **Database**
+3. Name it `hisync` → Save
 
-### 1. Yêu cầu
-- JDK 17+
-- PostgreSQL đang chạy local (hoặc remote)
-- Tài khoản Cloudinary, YouTube Data API key, và một Gmail app password (cho gửi OTP)
+### Step 3 — Create enums and tables
+Open the pgAdmin **Query Tool** for the `hisync` database and run the following SQL in order:
 
-### 2. Tạo database
 ```sql
-CREATE DATABASE hisync;
+-- Enums
+CREATE TYPE user_role AS ENUM ('member', 'leader', 'admin');
+CREATE TYPE task_status AS ENUM ('pending', 'submitted', 'approved', 'rerecord');
+
+-- Users
+CREATE TABLE users (
+    id BIGSERIAL PRIMARY KEY,
+    email VARCHAR UNIQUE NOT NULL,
+    password VARCHAR NOT NULL,
+    display_name VARCHAR,
+    role user_role DEFAULT 'member',
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- User instruments
+CREATE TABLE user_instruments (
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    instrument VARCHAR(50) NOT NULL,
+    PRIMARY KEY (user_id, instrument)
+);
+
+-- Bands
+CREATE TABLE bands (
+    id BIGSERIAL PRIMARY KEY,
+    name VARCHAR NOT NULL,
+    description VARCHAR,
+    invite_code VARCHAR UNIQUE NOT NULL,
+    created_by BIGINT REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Band members
+CREATE TABLE band_members (
+    band_id BIGINT NOT NULL REFERENCES bands(id) ON DELETE CASCADE,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    role user_role DEFAULT 'member',
+    joined_at TIMESTAMP DEFAULT NOW(),
+    PRIMARY KEY (band_id, user_id)
+);
+
+-- Lineups
+CREATE TABLE lineups (
+    id BIGSERIAL PRIMARY KEY,
+    band_id BIGINT NOT NULL REFERENCES bands(id) ON DELETE CASCADE,
+    song_title VARCHAR(255) NOT NULL,
+    youtube_id VARCHAR(50),
+    thumbnail_url VARCHAR(500),
+    created_by BIGINT REFERENCES users(id) ON DELETE SET NULL,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Lineup members
+CREATE TABLE lineup_members (
+    lineup_id BIGINT NOT NULL REFERENCES lineups(id) ON DELETE CASCADE,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    instrument VARCHAR(50) NOT NULL,
+    PRIMARY KEY (lineup_id, user_id)
+);
+
+-- Sessions
+CREATE TABLE sessions (
+    id BIGSERIAL PRIMARY KEY,
+    band_id BIGINT REFERENCES bands(id),
+    lineup_id BIGINT REFERENCES lineups(id) ON DELETE SET NULL,
+    date TIMESTAMP,
+    duration_minutes INT DEFAULT 60,
+    created_by BIGINT REFERENCES users(id)
+);
+
+-- Tasks
+CREATE TABLE tasks (
+    id BIGSERIAL PRIMARY KEY,
+    session_id BIGINT REFERENCES sessions(id),
+    assigned_to BIGINT REFERENCES users(id),
+    title VARCHAR,
+    status task_status DEFAULT 'pending',
+    recording_url VARCHAR
+);
 ```
 
-### 3. Cấu hình `application.properties`
-
-> ⚠️ **Không commit file này với giá trị thật lên git.** Repo hiện đang để credentials thật trong `application.properties` — xem mục [Bảo mật](#️-bảo-mật-đọc-trước-khi-public) bên dưới.
+### Step 4 — Configure `application.properties`
+Open `src/main/resources/application.properties` and update:
 
 ```properties
 spring.datasource.url=jdbc:postgresql://localhost:5432/hisync
-spring.datasource.username=postgres
-spring.datasource.password=${DB_PASSWORD}
+spring.datasource.username=YOUR_POSTGRES_USERNAME
+spring.datasource.password=YOUR_POSTGRES_PASSWORD
 
-spring.jpa.database-platform=org.hibernate.dialect.PostgreSQLDialect
 spring.jpa.hibernate.ddl-auto=validate
-spring.jpa.show-sql=true
+spring.jpa.database-platform=org.hibernate.dialect.PostgreSQLDialect
+spring.jpa.properties.hibernate.type.preferred_enum_jdbc_type=NAMED_ENUM
 
-# YouTube
-youtube.api.key=${YOUTUBE_API_KEY}
-
-# Cloudinary
-cloudinary.cloud-name=${CLOUDINARY_CLOUD_NAME}
-cloudinary.upload-preset=${CLOUDINARY_UPLOAD_PRESET}
-
-# Mail OTP
+# Gmail SMTP for OTP emails
 spring.mail.host=smtp.gmail.com
 spring.mail.port=587
-spring.mail.username=${MAIL_USERNAME}
-spring.mail.password=${MAIL_APP_PASSWORD}
+spring.mail.username=YOUR_GMAIL_ADDRESS
+spring.mail.password=YOUR_GMAIL_APP_PASSWORD
 spring.mail.properties.mail.smtp.auth=true
 spring.mail.properties.mail.smtp.starttls.enable=true
 ```
 
-Set các biến môi trường tương ứng (`DB_PASSWORD`, `YOUTUBE_API_KEY`, `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_UPLOAD_PRESET`, `MAIL_USERNAME`, `MAIL_APP_PASSWORD`) trước khi chạy, hoặc dùng file `application-local.properties` đã gitignore.
+> **Note on Gmail App Password:** Go to your Google Account → Security → 2-Step Verification → App Passwords → generate one for "Mail". Use that 16-character password, not your normal Gmail password.
 
-### 4. Build & run
+### Step 5 — Find your local IP address
+The Android app connects to the backend over your local network (hotspot or WiFi). You need your machine's local IP:
+
+- **Windows:** open Command Prompt → run `ipconfig` → look for `IPv4 Address`
+- **macOS/Linux:** run `ifconfig` or `ip addr`
+
+Example: `192.168.1.5` or `172.20.10.2` (hotspot)
+
+You'll need this IP in the Android setup step.
+
+### Step 6 — Run the backend
+In the project root, run:
+
 ```bash
-./gradlew bootRun
+./gradlew bootRun       # macOS / Linux
+gradlew.bat bootRun     # Windows
 ```
-API mặc định chạy ở `http://localhost:8080`.
 
-### 5. Test API
-Dùng Postman để gọi thử các endpoint (`/api/auth/*`, `/api/bands/*`, `/api/sessions/*`, `/api/songs/*`, `/api/tasks/*`, `/api/admin/*`).
+Or run `HisyncApplication.java` directly from IntelliJ IDEA by clicking the green ▶ button.
 
-## ⚠️ Bảo mật (đọc trước khi public!)
+The server starts at: `http://localhost:8080`
 
-- **Rotate ngay** DB password, YouTube API key, và Gmail app password hiện có trong `application.properties` — nếu repo từng public với giá trị thật thì coi như đã leak, đổi key mới.
-- Chuyển hết secret ra biến môi trường hoặc một file `application-local.properties` đã add vào `.gitignore`, đừng để giá trị thật nằm trong file commit.
-- Security filter chain hiện đang `permitAll()` cho tất cả request — đang trong kế hoạch chuyển sang xác thực token-based (JWT) để mỗi endpoint tự verify identity/role thay vì tin client gửi user ID.
+You can verify it's running by visiting `http://localhost:8080/api/bands` in your browser — it should return `[]` or a JSON response.
 
-## 📄 License
+---
 
-TODO — thêm license phù hợp (MIT/Apache-2.0/...) trước khi public chính thức.
+## Project Structure
 
-## 🙋 Liên hệ
+```
+src/main/java/com/example/hisync/
+│
+├── config/
+│   └── SecurityConfig.java
+├── controller/
+│   ├── AuthController.java
+│   ├── UserController.java
+│   ├── BandController.java
+│   ├── LineupController.java
+│   ├── SessionController.java
+│   ├── TaskController.java
+│   └── AdminController.java
+├── dto/                            # Request/response data shapes
+├── model/                          # JPA entities
+├── repository/                     # Spring Data JPA interfaces
+└── service/                        # Business logic
+    ├── AuthService.java
+    ├── BandService.java
+    ├── LineupService.java
+    ├── SessionService.java
+    └── OtpStore.java               # In-memory OTP (15-min expiry)
+```
 
-Tác giả: [tên bạn] — đồ án tốt nghiệp, [tên trường], 2026.
+---
+
+## Database Schema Summary
+
+### Enums
+```
+user_role:   member | leader | admin
+task_status: pending | submitted | approved | rerecord
+```
+
+### Table relationships
+```
+users ──< user_instruments
+users ──< band_members >── bands
+bands ──< lineups ──< lineup_members >── users
+bands ──< sessions >── lineups
+sessions ──< tasks >── users
+```
+
+---
+
+## API Endpoints
+
+### Auth — `/api/auth`
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/register` | Register new user |
+| POST | `/login` | Login |
+| POST | `/forgot-password` | Send OTP to email |
+| POST | `/reset-password` | Reset password with OTP |
+
+### Users — `/api/users`
+| Method | Path | Description |
+|--------|------|-------------|
+| PATCH | `/{id}` | Update displayName and/or instruments |
+| GET | `/{id}/instruments` | Get user's instruments |
+
+### Bands — `/api/bands`
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/` | Create band |
+| POST | `/join` | Join by invite code |
+| GET | `/` | Get bands for user (`?userId=`) |
+| GET | `/{id}` | Get band with members |
+
+### Lineups — `/api/lineups`
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/` | Create lineup |
+| GET | `/` | Get lineups (`?bandId=`) |
+| GET | `/{id}` | Get lineup detail |
+| PATCH | `/{id}` | Update lineup |
+| DELETE | `/{id}` | Delete lineup |
+
+### Sessions — `/api/sessions`
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/` | Get sessions (`?userId=` or `?bandId=`) + `from` + `to` |
+| GET | `/{id}` | Get session detail |
+| POST | `/` | Create session |
+| PATCH | `/{id}` | Update session |
+| DELETE | `/{id}` | Delete session |
+
+### Tasks — `/api/tasks`
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/` | Get my tasks (`?userId=`) |
+| GET | `/band/{bandId}` | Get all band tasks grouped by session |
+| POST | `/` | Create task |
+| PATCH | `/{id}` | Update task |
+| DELETE | `/{id}` | Delete task |
+| PATCH | `/{id}/status` | Update status |
+| PATCH | `/{id}/recording` | Submit recording URL |
+
+---
+
+## Task Status Flow
+```
+pending ──(member uploads)──► submitted
+                                   │
+                    ┌──────────────┴──────────────┐
+                    ▼                              ▼
+                 approved                       rerecord
+             (task complete)            (member must redo)
+```
+
+---
+
+## Pending Phases
+| Phase | Feature |
+|-------|---------|
+| 4 | Recording upload + Cloudinary + WorkManager background sync |
+| 5 | Submissions review screen |
+| 6 | Band settings: edit, kick members, transfer ownership, delete band |
