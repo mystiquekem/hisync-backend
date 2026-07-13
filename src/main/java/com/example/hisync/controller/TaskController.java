@@ -179,4 +179,19 @@ public class TaskController {
                 sessionDate
         );
     }
+
+    //Get the submissions                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         
+    @GetMapping("/band/{bandId}/submissions")
+    @Transactional
+    public ResponseEntity<List<TaskResponse>> getSubmissions(@PathVariable Long bandId) {
+        List<Session> sessions = sessionRepo.findByBandId(bandId);
+        List<TaskResponse> result = new ArrayList<>();
+        for (Session session : sessions) {
+            taskRepo.findBySessionId(session.getId()).stream()
+                    .filter(t -> t.getStatus() == Task.Status.submitted)
+                    .map(this::toResponse)
+                    .forEach(result::add);
+        }
+        return ResponseEntity.ok(result);
+    }
 }
